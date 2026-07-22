@@ -199,9 +199,11 @@ Notes:
 - **Peugeot** and **Jeep**: Commons had no clean vector of their current pictorial
   emblems (Peugeot's lion head, Jeep's 7-slot grille), so these use the brand
   wordmark instead.
-- **Subaru**: ~1.5MB SVG (much heavier than the others) — renders correctly but
-  OpenSCAD may take noticeably longer on it; run it through `svgo` or Inkscape's
-  "Simplify" if it's too slow.
+- **Subaru**: replaced with a smaller, cleaner file better suited to multi-color
+  printing. Uses `"drop_fill": ["#ffffff"]` to strip a full-canvas white
+  background rect that would otherwise swallow the wordmark/ring/stars the
+  same way Ford's navy oval did — see `logos/SOURCES.md`. No confirmed
+  Commons source URL for this one (user-supplied).
 - **BMW** and **Mercedes-Benz**: the original Commons uploads were glossy
   gradient-shaded "3D badge" renders unsuitable for flat print geometry;
   both were replaced with genuinely flat vector alternatives (no filter

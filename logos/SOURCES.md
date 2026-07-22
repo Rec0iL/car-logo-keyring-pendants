@@ -163,6 +163,28 @@ actually current. Both files are kept as separate manifest entries (`citroen` an
 precisely so a human can render both in OpenSCAD and pick/keep whichever actually matches the
 current logo — this document does not assert `citroen_2022` supersedes `citroen`.
 
+## Replaced 2026-07-22: Subaru
+
+The original "Subaru logo (transparent).svg" (row 17 above, ~1.5MB) was replaced with a
+user-supplied file (`logos/subaru-12.svg`, renamed to `logos/subaru.svg`) — smaller (3.6KB) and
+structurally better suited to multi-color (base + inlay) printing: a clean "SUBARU" wordmark, the
+oval ring, and the six-star cluster, each as ordinary flat-black paths.
+
+**No confirmed Commons source URL for this file** — it was added directly to the project rather
+than sourced via the search process used for everything else in this document. If you have the
+original source (Commons file title, or wherever it came from), it's worth adding here for the
+same provenance/license paper trail as the other 24 files; until then this entry is missing that
+column deliberately rather than guessing one.
+
+**Ford-style background-swallow problem, found and fixed the same way as Ford/Škoda:** the file's
+first `<path>` is `fill="#fff" d="M0 0h192.756v192.756H0V0z"` — a rectangle covering the *entire*
+192.756×192.756 canvas. Every other shape (wordmark, ring, stars) defaults to black (no `fill`
+attribute) and sits inside that rectangle's area, so importing everything as-is collapses to a
+plain square, the same failure mode as Ford's navy oval. Fixed with `"drop_fill": ["#ffffff"]` in
+the manifest entry, which removes just that background rect and keeps the black wordmark/ring/star
+paths — verified via `svg_content_bbox()`: unfiltered bbox is the full 192.76×192.76 canvas;
+filtered bbox is 182.5×67.1, matching the actual wordmark+star-cluster content.
+
 ## Not found / skipped
 
 None of the 24 brands were skipped outright. Škoda's replacement search (above) came up empty, but
