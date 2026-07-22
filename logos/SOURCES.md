@@ -170,11 +170,13 @@ user-supplied file (`logos/subaru-12.svg`, renamed to `logos/subaru.svg`) — sm
 structurally better suited to multi-color (base + inlay) printing: a clean "SUBARU" wordmark, the
 oval ring, and the six-star cluster, each as ordinary flat-black paths.
 
-**No confirmed Commons source URL for this file** — it was added directly to the project rather
-than sourced via the search process used for everything else in this document. If you have the
-original source (Commons file title, or wherever it came from), it's worth adding here for the
-same provenance/license paper trail as the other 24 files; until then this entry is missing that
-column deliberately rather than guessing one.
+**Source**: https://worldvectorlogo.com/de/logo/subaru-12 (per the user, 2026-07-22). Note this is
+a *different* source than every other file in this document — not Wikimedia Commons, so it doesn't
+carry the same "PD / below threshold of originality + trademark notice" tagging the rest of this
+table relies on. worldvectorlogo.com generally offers logos for free personal/informational use,
+consistent with this project's non-commercial hobbyist framing, but that's a site's terms-of-use
+claim rather than a Commons PD determination — same trademark caveats apply regardless (Subaru's
+mark remains their trademark either way).
 
 **Ford-style background-swallow problem, found and fixed the same way as Ford/Škoda:** the file's
 first `<path>` is `fill="#fff" d="M0 0h192.756v192.756H0V0z"` — a rectangle covering the *entire*

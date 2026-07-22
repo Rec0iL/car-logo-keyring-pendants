@@ -199,11 +199,11 @@ Notes:
 - **Peugeot** and **Jeep**: Commons had no clean vector of their current pictorial
   emblems (Peugeot's lion head, Jeep's 7-slot grille), so these use the brand
   wordmark instead.
-- **Subaru**: replaced with a smaller, cleaner file better suited to multi-color
-  printing. Uses `"drop_fill": ["#ffffff"]` to strip a full-canvas white
-  background rect that would otherwise swallow the wordmark/ring/stars the
-  same way Ford's navy oval did — see `logos/SOURCES.md`. No confirmed
-  Commons source URL for this one (user-supplied).
+- **Subaru**: replaced with a smaller, cleaner file (from worldvectorlogo.com,
+  not Wikimedia Commons like the rest — see `logos/SOURCES.md`) better suited
+  to multi-color printing. Uses `"drop_fill": ["#ffffff"]` to strip a
+  full-canvas white background rect that would otherwise swallow the
+  wordmark/ring/stars the same way Ford's navy oval did.
 - **BMW** and **Mercedes-Benz**: the original Commons uploads were glossy
   gradient-shaded "3D badge" renders unsuitable for flat print geometry;
   both were replaced with genuinely flat vector alternatives (no filter
