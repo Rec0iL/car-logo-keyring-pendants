@@ -1,0 +1,20 @@
+# Generated STL output (reproducible via generate.py / gui.py)
+output/
+
+# Cache of color-filtered SVGs (regenerated automatically, see keep_fill/drop_fill)
+logos/_filtered/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OpenSCAD
+*.csg
+*.echo
+
+# Editor / OS cruft
+.vscode/
+.idea/
+*.swp
+.DS_Store

@@ -1,0 +1,146 @@
+[
+  {
+    "name": "Toyota",
+    "id": "toyota",
+    "file": "logos/toyota.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Toyota_Symbol.svg"
+  },
+  {
+    "name": "Volkswagen",
+    "id": "volkswagen",
+    "file": "logos/volkswagen.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Volkswagen_logo_2019.svg"
+  },
+  {
+    "name": "Mercedes-Benz",
+    "id": "mercedes_benz",
+    "file": "logos/mercedes_benz.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Mercedes-Benz_Star_(1969-1986,_2025-).svg"
+  },
+  {
+    "name": "BMW",
+    "id": "bmw",
+    "file": "logos/bmw.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:BMW_logo_(gray).svg"
+  },
+  {
+    "name": "Audi",
+    "id": "audi",
+    "file": "logos/audi.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Audi-Logo_2016.svg"
+  },
+  {
+    "name": "Ford",
+    "id": "ford",
+    "file": "logos/ford.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Ford_logo_flat.svg",
+    "keep_fill": [
+      "#ffffff"
+    ]
+  },
+  {
+    "name": "Honda",
+    "id": "honda",
+    "file": "logos/honda.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Honda_Logo.svg"
+  },
+  {
+    "name": "Chevrolet",
+    "id": "chevrolet",
+    "file": "logos/chevrolet.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Chevrolet_bowtie_2023.svg"
+  },
+  {
+    "name": "Nissan",
+    "id": "nissan",
+    "file": "logos/nissan.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Nissan_2020_logo.svg"
+  },
+  {
+    "name": "Hyundai",
+    "id": "hyundai",
+    "file": "logos/hyundai.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Hyundai_Motor_Company_logo.svg"
+  },
+  {
+    "name": "Kia",
+    "id": "kia",
+    "file": "logos/kia.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:KIA_logo3.svg"
+  },
+  {
+    "name": "Peugeot",
+    "id": "peugeot",
+    "file": "logos/peugeot.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Peugeot_Logo.svg"
+  },
+  {
+    "name": "Renault",
+    "id": "renault",
+    "file": "logos/renault.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Renault_2021.svg"
+  },
+  {
+    "name": "Volvo",
+    "id": "volvo",
+    "file": "logos/volvo.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Volvo-Iron-Mark-Black.svg"
+  },
+  {
+    "name": "Porsche",
+    "id": "porsche",
+    "file": "logos/porsche.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Porsche_Warenzeichen.svg"
+  },
+  {
+    "name": "Mazda",
+    "id": "mazda",
+    "file": "logos/mazda.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Mazda_logo.svg"
+  },
+  {
+    "name": "Subaru",
+    "id": "subaru",
+    "file": "logos/subaru.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Subaru_logo_(transparent).svg"
+  },
+  {
+    "name": "Jeep",
+    "id": "jeep",
+    "file": "logos/jeep.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Jeep.svg"
+  },
+  {
+    "name": "Škoda",
+    "id": "skoda",
+    "file": "logos/skoda.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:%C5%A0koda_Auto.svg",
+    "keep_fill": [
+      "#42bd3b"
+    ]
+  },
+  {
+    "name": "Opel",
+    "id": "opel",
+    "file": "logos/opel.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Opel_Logo_2021.svg"
+  },
+  {
+    "name": "Citroën",
+    "id": "citroen",
+    "file": "logos/citroen.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Citroen_2021_(alternate).svg"
+  },
+  {
+    "name": "SEAT",
+    "id": "seat",
+    "file": "logos/seat.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:SEAT_Logo_from_2017.svg"
+  },
+  {
+    "name": "Cupra",
+    "id": "cupra",
+    "file": "logos/cupra.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Cupra_symbol.svg"
+  }
+]
