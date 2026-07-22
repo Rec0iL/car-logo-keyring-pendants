@@ -142,5 +142,11 @@
     "id": "cupra",
     "file": "logos/cupra.svg",
     "source_url": "https://commons.wikimedia.org/wiki/File:Cupra_symbol.svg"
+  },
+  {
+    "name": "Citroën (2022)",
+    "id": "citroen_2022",
+    "file": "logos/citroen_2022.svg",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Citroen_2022.svg"
   }
 ]

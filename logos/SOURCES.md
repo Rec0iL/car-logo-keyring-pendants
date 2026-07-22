@@ -138,7 +138,32 @@ renders unsuitable for flat print geometry.
   recolored/re-exported SVG (so ring and text no longer collide on hex value) or accepting the
   wing-only result and adding a separate text engraving in OpenSCAD directly.
 
+## Added 2026-07-22: Citroën (2022) as a second variant
+
+Added `logos/citroen_2022.svg` (id `citroen_2022`) alongside the existing `citroen.svg`, at the
+user's request, without touching or removing the original entry.
+
+Downloaded from `https://commons.wikimedia.org/wiki/File:Citroen_2022.svg` (Special:FilePath
+redirect, 200 OK, well-formed XML, no gradients — a single flat-black compound path for the mark
+plus separate letter-shape paths spelling "CITROEN"). PD (below threshold of originality) +
+trademark notice, same framing as every other file in this document.
+
+**Important caveat, flagged rather than silently resolved:** the filename says "2022," but reading
+its actual path geometry makes that questionable. This file's mark is a *circular* badge — one
+compound path whose first subpath is a circle outline, with wave/chevron-like cutout shapes as
+further subpaths inside it — plus a full "CITROEN" wordmark. That does not match the real-world
+2022 Citroën rebrand, which (to the best of the analysis available here, with no way to render
+either file and compare visually) is a flat, frameless, two-piece open chevron mark with no circular
+border and no wordmark attached. The **existing** `citroen.svg` (sourced last round from "Citroen
+2021 (alternate).svg" — two bare chevron shapes, no frame) actually looks like the closer match to
+that real current design, despite its file's name suggesting 2021.
+
+In short: Commons' file-naming years for Citroën are not reliable evidence of which design is
+actually current. Both files are kept as separate manifest entries (`citroen` and `citroen_2022`)
+precisely so a human can render both in OpenSCAD and pick/keep whichever actually matches the
+current logo — this document does not assert `citroen_2022` supersedes `citroen`.
+
 ## Not found / skipped
 
-None of the 23 brands were skipped outright. Škoda's replacement search (above) came up empty, but
+None of the 24 brands were skipped outright. Škoda's replacement search (above) came up empty, but
 the existing file remains usable via the `keep_fill` filter rather than being dropped.
