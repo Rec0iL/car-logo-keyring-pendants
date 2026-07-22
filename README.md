@@ -52,9 +52,10 @@ python3 gui.py
   streaming each render's status into the log box and updating the progress
   bar; **Stop** finishes the file currently rendering and halts before the
   next one. **Open Output Folder** opens `output/` in your file manager.
-- Per-brand tweaks (`y_offset`, `rotate`, `logo_size`) are still edited in
-  `logos/manifest.json` directly — the GUI doesn't expose those, since
-  they're meant to be set once per problem logo, not per run.
+- Per-brand tweaks (`y_offset`, `rotate`, `logo_size`, `aspect_w`/`aspect_h`)
+  are still edited in `logos/manifest.json` directly — the GUI doesn't
+  expose those, since they're meant to be set once per problem logo, not
+  per run.
 
 ## CLI Usage
 
@@ -69,7 +70,7 @@ python3 generate.py --only bmw toyota porsche
 python3 generate.py --variants emboss
 
 # override geometry globally
-python3 generate.py --logo-size 26 --base-h 3.5 --engrave-d 1.2
+python3 generate.py --logo-margin 4 --base-h 3.5 --engrave-d 1.2
 
 # point at a specific openscad binary if it's not on PATH
 python3 generate.py --openscad /usr/bin/openscad
@@ -88,8 +89,17 @@ that brand is skipped rather than aborting the whole batch.
   fragile) connection, so by default the loop is nudged in by `--ring-overlap`
   (0.8mm) to weld it solidly to the disc. Set `--ring-overlap 0` for an exact
   tangent if you really want it, but that's not recommended for printing.
-- **Logo**: scaled to fit within a `--logo-size` (default 30mm) box on the
-  longer side, aspect ratio preserved, centered on the disc.
+- **Logo**: automatically scaled (aspect ratio preserved) so its bounding
+  box's *diagonal* fits within a circle of diameter `pendant_d - 2*logo_margin`
+  (`--logo-margin`, default 3mm gap from the disc edge) — this bounds the
+  diagonal, not just one side, so near-square logos can't quietly poke past
+  the edge the way a "fit the longer side" rule would let them. `--logo-size`
+  overrides that auto-computed diameter directly (0 = auto, the default).
+  The content's own aspect ratio is measured from the actual SVG geometry
+  (accounting for `<g transform=...>` chains and any `keep_fill`/`drop_fill`
+  filtering), not just its nominal canvas size — see `logos/SOURCES.md`/the
+  `aspect_w`/`aspect_h` manifest keys below for the rare case where that
+  auto-detection needs a manual override.
 - **Emboss**: logo stands `--emboss-h` (1.0mm) proud of the top face.
 - **Engrave**: logo is cut `--engrave-d` (1.0mm) deep into the top face,
   leaving a 2mm floor with the default 3mm base thickness.
@@ -124,9 +134,19 @@ the brand's entry in `logos/manifest.json`:
   "y_offset": -1.5,
   "x_offset": 0,
   "rotate": 0,
-  "logo_size": 26
+  "logo_size": 26,
+  "aspect_w": 225,
+  "aspect_h": 38
 }
 ```
+
+`logo_size` here overrides the auto-computed fit-circle diameter just for
+this brand (still an absolute mm diameter, not a "long side" length). `aspect_w`/
+`aspect_h` override the auto-detected content aspect ratio (only their ratio
+matters, not the absolute numbers) — this only exists as an escape hatch for
+the rare SVG where the geometry-based auto-detection gets confused (e.g. a
+`<use>`/`<symbol>` reference it doesn't resolve); you shouldn't need it for
+a normal path-based logo.
 
 To preview a single logo interactively before batch-rendering everything,
 open `pendant.scad` in the OpenSCAD GUI, set `logo_svg` (and `variant =
@@ -194,10 +214,15 @@ Notes:
   and can't be separated by fill alone. Worth a look in the OpenSCAD GUI
   before printing; see `logos/SOURCES.md` for the full trade-off writeup.
 - **Wordmark logos** (Hyundai, Mazda, Kia, Chevrolet, Ford, Audi, etc.) are very
-  wide/thin (aspect ratios up to ~8:1). At the default `logo_size=30`, the short
-  axis can end up just a few mm tall once engraved. If text detail gets lost,
-  either bump that brand's `logo_size` in `manifest.json`, or reduce `engrave_d`/
-  increase `emboss_h` so shallower relief keeps thin strokes structurally sound.
+  wide/thin (aspect ratios up to ~7:1 for Hyundai). Since the fit now bounds
+  the *diagonal* rather than the long side, these end up thinner on their
+  short axis than a naive "fit the long side to 30mm" rule would give — e.g.
+  Hyundai's wordmark comes out only ~4.6mm tall at the default 40mm pendant/
+  3mm margin. If text detail gets lost, either bump that brand's `logo_size`
+  in `manifest.json` (shrinks the whole logo, keeping more margin — doesn't
+  help thinness directly) or reduce `engrave_d`/increase `emboss_h` so
+  shallower relief keeps thin strokes structurally sound. A bigger pendant
+  (`--pendant-d`) or smaller `--logo-margin` gives every logo more room.
 - If a logo ever imports blank, mirrored, or oddly cropped, the usual fix is to
   re-save the source SVG in Inkscape as "Plain SVG" (flattens transforms/CSS
   classes/defs into plain paths) and re-point `manifest.json` at the cleaned file.

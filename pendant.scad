@@ -38,8 +38,10 @@ ring_overlap   = 0.8;   // how far the loop's inner circle bites into the disc's
 
 /* [Logo] */
 logo_svg       = "";    // path to the logo SVG, e.g. "logos/toyota.svg". Empty = blank disc.
-logo_size      = 30;    // target size (mm) of the logo's longer bounding-box side
-logo_wide      = true;  // true if the source SVG is wider than it is tall (auto-computed by generate.py)
+logo_margin    = 3;     // gap (mm) between the logo's fitted bounding circle and the pendant edge
+logo_size      = 0;     // explicit bounding-circle diameter (mm), overriding logo_margin. 0 = auto
+logo_aspect_w  = 1;     // content bounding-box width (auto-computed by generate.py; only the
+logo_aspect_h  = 1;     // aspect_w:aspect_h ratio matters, not absolute units)
 logo_y_offset  = 0;     // manual nudge, mm, for logos whose visual center isn't their bbox center
 logo_x_offset  = 0;
 logo_rotate    = 0;     // manual rotation in degrees, for SVGs that import sideways/upside-down
@@ -58,6 +60,18 @@ ring_ir   = ring_id / 2;
 ring_or   = ring_od / 2;
 ring_cy   = pendant_r + ring_ir - ring_overlap; // loop center, along +Y
 
+// Diameter of the circle the logo's bounding-box diagonal must fit within.
+// logo_size > 0 overrides the auto (pendant-relative) value.
+logo_fit_d    = (logo_size > 0) ? logo_size : (pendant_d - 2 * logo_margin);
+// Split logo_fit_d between width/height in proportion to the content's own
+// aspect ratio, such that target_w^2 + target_h^2 = logo_fit_d^2 exactly.
+// resize() below then forces the *actual* geometry to exactly these
+// dimensions - so the diagonal-fits-in-a-circle guarantee holds regardless
+// of any approximation error in how logo_aspect_w/h were measured.
+_logo_aspect_norm = sqrt(logo_aspect_w * logo_aspect_w + logo_aspect_h * logo_aspect_h);
+logo_target_w = logo_fit_d * logo_aspect_w / _logo_aspect_norm;
+logo_target_h = logo_fit_d * logo_aspect_h / _logo_aspect_norm;
+
 // ----------------------------------------------------------------------------
 // 2D profile: disc + keyring loop, with the loop hole punched through the
 // final union so it stays a clean through-hole even where it overlaps the
@@ -74,20 +88,17 @@ module pendant_outline_2d() {
 }
 
 // ----------------------------------------------------------------------------
-// Logo footprint, imported from SVG, uniformly scaled to fit within a
-// logo_size x logo_size box (aspect ratio preserved) and centered at origin.
+// Logo footprint, imported from SVG and scaled (aspect ratio preserved) so
+// its bounding box is exactly logo_target_w x logo_target_h - sized so that
+// box's diagonal equals logo_fit_d, guaranteeing it fits within a circle of
+// that diameter no matter the logo's shape. Centered at origin.
 // ----------------------------------------------------------------------------
 module logo_2d() {
     if (logo_svg != "") {
         translate([logo_x_offset, logo_y_offset])
         rotate([0, 0, logo_rotate])
-        if (logo_wide) {
-            resize([logo_size, 0, 0], auto = [false, true, true])
-                import(logo_svg, center = true);
-        } else {
-            resize([0, logo_size, 0], auto = [true, false, true])
-                import(logo_svg, center = true);
-        }
+        resize([logo_target_w, logo_target_h, 0], auto = [false, false, true])
+            import(logo_svg, center = true);
     }
 }
 

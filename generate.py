@@ -14,14 +14,24 @@ Usage:
     python3 generate.py --only toyota bmw
     python3 generate.py --variants emboss
     python3 generate.py --openscad /usr/bin/openscad
-    python3 generate.py --logo-size 28 --base-h 3.5
+    python3 generate.py --logo-margin 4 --base-h 3.5
+
+Every logo is automatically scaled (aspect ratio preserved) so its bounding
+box's *diagonal* fits within a circle of diameter (pendant_d - 2*logo_margin)
+- this guarantees no logo can overhang the pendant edge, regardless of shape.
+--logo-size overrides that auto-computed circle diameter directly if you want
+an explicit size instead.
 
 Per-brand geometry tweaks (for logos that need manual nudging/rotation after
 a first look at the STL) can be set directly in manifest.json entries, e.g.:
     {"id": "mazda", ..., "y_offset": -1.5, "rotate": 0, "logo_size": 26}
+Advanced: aspect_w/aspect_h override the auto-detected content aspect ratio,
+for the rare SVG where the geometry-based auto-detection guesses wrong.
 """
 import argparse
 import json
+import math
+import re
 import shutil
 import subprocess
 import sys
@@ -41,54 +51,301 @@ DEFAULT_PARAMS = {
     "ring_id": 5.0,
     "ring_od": 9.0,
     "ring_overlap": 0.8,
-    "logo_size": 30.0,
+    "logo_margin": 3.0,
+    "logo_size": 0.0,
     "emboss_h": 1.0,
     "engrave_d": 1.0,
 }
 
-LENGTH_UNITS = ("px", "mm", "cm", "in", "pt", "pc", "%")
+
+# ---------------------------------------------------------------------------
+# SVG content bounding box (transform-aware), used to fit each logo's
+# diagonal into a circle so it can never overhang the pendant edge - see
+# svg_content_bbox() below for why this replaced a simpler viewBox-based guess.
+# ---------------------------------------------------------------------------
+
+_IDENTITY = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+_NUM_RE = r"-?\d*\.?\d+(?:[eE][-+]?\d+)?"
 
 
-def parse_length(value):
-    if value is None:
-        return None
-    value = value.strip()
-    for unit in LENGTH_UNITS:
-        if value.endswith(unit):
-            value = value[: -len(unit)]
-            break
+def _mat_mul(m1, m2):
+    """Compose two 2D affine matrices (a,b,c,d,e,f), applying m2 then m1."""
+    a1, b1, c1, d1, e1, f1 = m1
+    a2, b2, c2, d2, e2, f2 = m2
+    return (
+        a1 * a2 + c1 * b2,
+        b1 * a2 + d1 * b2,
+        a1 * c2 + c1 * d2,
+        b1 * c2 + d1 * d2,
+        a1 * e2 + c1 * f2 + e1,
+        b1 * e2 + d1 * f2 + f1,
+    )
+
+
+def _mat_apply(m, x, y):
+    a, b, c, d, e, f = m
+    return (a * x + c * y + e, b * x + d * y + f)
+
+
+def _parse_transform(value):
+    """Parse an SVG transform="..." attribute into a single composed 2D affine matrix."""
+    mat = _IDENTITY
+    if not value:
+        return mat
+    for name, args in re.findall(r"(\w+)\s*\(([^)]*)\)", value):
+        nums = [float(x) for x in re.findall(_NUM_RE, args)]
+        if name == "translate" and nums:
+            tx = nums[0]
+            ty = nums[1] if len(nums) > 1 else 0.0
+            m = (1.0, 0.0, 0.0, 1.0, tx, ty)
+        elif name == "scale" and nums:
+            sx = nums[0]
+            sy = nums[1] if len(nums) > 1 else sx
+            m = (sx, 0.0, 0.0, sy, 0.0, 0.0)
+        elif name == "rotate" and nums:
+            ang = math.radians(nums[0])
+            ca, sa = math.cos(ang), math.sin(ang)
+            rot = (ca, sa, -sa, ca, 0.0, 0.0)
+            if len(nums) >= 3:
+                cx, cy = nums[1], nums[2]
+                m = _mat_mul(_mat_mul((1, 0, 0, 1, cx, cy), rot), (1, 0, 0, 1, -cx, -cy))
+            else:
+                m = rot
+        elif name == "matrix" and len(nums) >= 6:
+            m = tuple(nums[:6])
+        elif name == "skewX" and nums:
+            m = (1.0, 0.0, math.tan(math.radians(nums[0])), 1.0, 0.0, 0.0)
+        elif name == "skewY" and nums:
+            m = (1.0, math.tan(math.radians(nums[0])), 0.0, 1.0, 0.0, 0.0)
+        else:
+            continue
+        mat = _mat_mul(mat, m)
+    return mat
+
+
+_FLOAT_RE = re.compile(r"[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?")
+_FLAG_RE = re.compile(r"[01]")
+
+
+class _PathCursor:
+    """Minimal scanner over an SVG path 'd' string. Needed instead of a flat
+    regex token list because arc flags are exactly one digit and can appear
+    with NO separator between them or the next number (e.g. "a5 5 0 01 5 5"
+    is legal - the two flags are "0" and "1", not the number 1). A generic
+    number regex would greedily swallow "01" as one token and desync every
+    argument after it."""
+
+    def __init__(self, s):
+        self.s = s
+        self.i = 0
+        self.n = len(s)
+
+    def skip_sep(self):
+        while self.i < self.n and self.s[self.i] in " \t\r\n,":
+            self.i += 1
+
+    def peek_is_command(self):
+        self.skip_sep()
+        return self.i < self.n and self.s[self.i].isalpha()
+
+    def read_command(self):
+        self.skip_sep()
+        c = self.s[self.i]
+        self.i += 1
+        return c
+
+    def read_number(self):
+        self.skip_sep()
+        m = _FLOAT_RE.match(self.s, self.i)
+        if not m:
+            raise ValueError(f"expected number at offset {self.i}")
+        self.i = m.end()
+        return float(m.group())
+
+    def read_flag(self):
+        self.skip_sep()
+        m = _FLAG_RE.match(self.s, self.i)
+        if not m:
+            raise ValueError(f"expected arc flag (0/1) at offset {self.i}")
+        self.i = m.end()
+        return int(m.group())
+
+    def at_end(self):
+        self.skip_sep()
+        return self.i >= self.n
+
+
+def _path_points(d):
+    """Extract every anchor + control point from a path's d="..." attribute, with
+    relative commands resolved to absolute local coordinates. Curve control points
+    are included (not just endpoints): by the convex-hull property of Bezier
+    curves, the curve always lies within its control points' bounding box, so
+    this is always a safe (never-too-small) approximation of the true bbox -
+    an elliptical arc's bulge is padded in similarly (see 'A'/'a' below).
+
+    Parse errors (malformed/truncated data) return whatever points were
+    collected before the error, rather than failing the whole file."""
+    c = _PathCursor(d)
+    points = []
+    cmd = None
+    cx = cy = 0.0
+    start_x = start_y = 0.0
+
     try:
-        return float(value)
+        while not c.at_end():
+            if c.peek_is_command():
+                cmd = c.read_command()
+            elif cmd is None:
+                break  # malformed: numbers with no command yet - bail safely
+
+            if cmd in ("M", "m"):
+                x, y = c.read_number(), c.read_number()
+                if cmd == "m" and points:
+                    x += cx
+                    y += cy
+                cx, cy = x, y
+                start_x, start_y = cx, cy
+                points.append((cx, cy))
+                cmd = "L" if cmd == "M" else "l"  # subsequent pairs are implicit lineto
+            elif cmd in ("L", "l"):
+                x, y = c.read_number(), c.read_number()
+                if cmd == "l":
+                    x += cx
+                    y += cy
+                cx, cy = x, y
+                points.append((cx, cy))
+            elif cmd in ("H", "h"):
+                x = c.read_number()
+                if cmd == "h":
+                    x += cx
+                cx = x
+                points.append((cx, cy))
+            elif cmd in ("V", "v"):
+                y = c.read_number()
+                if cmd == "v":
+                    y += cy
+                cy = y
+                points.append((cx, cy))
+            elif cmd in ("C", "c"):
+                x1, y1, x2, y2, x, y = (c.read_number() for _ in range(6))
+                if cmd == "c":
+                    x1 += cx; y1 += cy; x2 += cx; y2 += cy; x += cx; y += cy
+                points += [(x1, y1), (x2, y2), (x, y)]
+                cx, cy = x, y
+            elif cmd in ("S", "s"):
+                x2, y2, x, y = (c.read_number() for _ in range(4))
+                if cmd == "s":
+                    x2 += cx; y2 += cy; x += cx; y += cy
+                points += [(x2, y2), (x, y)]
+                cx, cy = x, y
+            elif cmd in ("Q", "q"):
+                x1, y1, x, y = (c.read_number() for _ in range(4))
+                if cmd == "q":
+                    x1 += cx; y1 += cy; x += cx; y += cy
+                points += [(x1, y1), (x, y)]
+                cx, cy = x, y
+            elif cmd in ("T", "t"):
+                x, y = c.read_number(), c.read_number()
+                if cmd == "t":
+                    x += cx
+                    y += cy
+                points.append((x, y))
+                cx, cy = x, y
+            elif cmd in ("A", "a"):
+                rx, ry = c.read_number(), c.read_number()
+                _rot = c.read_number()
+                _laf, _sf = c.read_flag(), c.read_flag()
+                x, y = c.read_number(), c.read_number()
+                if cmd == "a":
+                    x += cx
+                    y += cy
+                # Not solving true arc extrema - pad both ends by the radii so the
+                # bulge can't exceed this box (safe overestimate, never too small).
+                for px, py in ((cx, cy), (x, y)):
+                    points += [(px - rx, py - ry), (px + rx, py + ry)]
+                cx, cy = x, y
+            elif cmd in ("Z", "z"):
+                cx, cy = start_x, start_y
+                cmd = None  # closepath never implicitly repeats; require an explicit next command
+            else:
+                break  # unrecognized command letter - bail out safely
     except ValueError:
-        return None
+        pass  # malformed/truncated data - keep whatever points were already found
+
+    return points
 
 
-def svg_is_wide(svg_path: Path) -> bool:
-    """True if the SVG's bounding box is wider than it is tall (or square)."""
+def _shape_local_points(elem, tag):
+    def f(attr, default=0.0):
+        v = elem.get(attr)
+        try:
+            return float(v) if v not in (None, "") else default
+        except ValueError:
+            return default
+
+    if tag == "path":
+        d = elem.get("d")
+        return _path_points(d) if d else []
+    if tag == "rect":
+        x, y, w, h = f("x"), f("y"), f("width"), f("height")
+        return [(x, y), (x + w, y), (x, y + h), (x + w, y + h)]
+    if tag in ("circle", "ellipse"):
+        cx, cy = f("cx"), f("cy")
+        rx = f("r") if tag == "circle" else f("rx")
+        ry = f("r") if tag == "circle" else f("ry")
+        n = 16
+        return [
+            (cx + rx * math.cos(2 * math.pi * k / n), cy + ry * math.sin(2 * math.pi * k / n))
+            for k in range(n)
+        ]
+    if tag in ("polygon", "polyline"):
+        nums = [float(x) for x in re.findall(_NUM_RE, elem.get("points", ""))]
+        return list(zip(nums[0::2], nums[1::2]))
+    return []
+
+
+_NON_RENDERED_TAGS = {"defs", "clippath", "mask", "symbol", "pattern", "metadata", "title", "desc"}
+
+
+def svg_content_bbox(svg_path: Path):
+    """Compute the bounding box of everything actually drawn in an SVG, walking
+    the tree and composing ancestor transforms so nested <g transform=...>
+    groups (common in real-world logo exports) don't throw off the result.
+
+    Returns (xmin, ymin, xmax, ymax) in the SVG's own local units, or None if
+    no drawable geometry was found. Used only to derive an aspect ratio for
+    fitting the logo into a circle - see build_command().
+    """
     try:
         root = ET.parse(svg_path).getroot()
-    except ET.ParseError as exc:
-        print(f"  ! warning: could not parse {svg_path.name} ({exc}), assuming wide=true")
-        return True
+    except ET.ParseError:
+        return None
 
-    view_box = root.get("viewBox")
-    if view_box:
-        parts = view_box.replace(",", " ").split()
-        if len(parts) == 4:
-            try:
-                w, h = float(parts[2]), float(parts[3])
-                if w > 0 and h > 0:
-                    return w >= h
-            except ValueError:
-                pass
+    bounds = [math.inf, math.inf, -math.inf, -math.inf]  # xmin, ymin, xmax, ymax
 
-    w = parse_length(root.get("width"))
-    h = parse_length(root.get("height"))
-    if w and h:
-        return w >= h
+    def walk(elem, matrix):
+        tag = _local_tag(elem).lower()
+        if tag in _NON_RENDERED_TAGS:
+            return
+        m = _mat_mul(matrix, _parse_transform(elem.get("transform")))
+        if tag in SHAPE_TAGS:
+            for x, y in _shape_local_points(elem, tag):
+                px, py = _mat_apply(m, x, y)
+                if px < bounds[0]:
+                    bounds[0] = px
+                if py < bounds[1]:
+                    bounds[1] = py
+                if px > bounds[2]:
+                    bounds[2] = px
+                if py > bounds[3]:
+                    bounds[3] = py
+        for child in elem:
+            walk(child, m)
 
-    print(f"  ! warning: no usable viewBox/width/height in {svg_path.name}, assuming wide=true")
-    return True
+    walk(root, _IDENTITY)
+    if bounds[0] is math.inf:
+        return None
+    return tuple(bounds)
 
 
 FILTERED_DIR = ROOT / "logos" / "_filtered"
@@ -223,8 +480,8 @@ def build_command(openscad, entry, variant, params):
     """Build the OpenSCAD CLI command for one brand/variant.
 
     `params` is a dict with the keys in DEFAULT_PARAMS. Per-brand overrides
-    for logo_size/y_offset/x_offset/rotate come from the manifest entry
-    itself, same as the "wide" auto-detection.
+    for logo_size/y_offset/x_offset/rotate/aspect_w/aspect_h come from the
+    manifest entry itself.
 
     Returns (cmd, out_file, error). `cmd`/`out_file` are None if `error` is set.
     """
@@ -238,9 +495,20 @@ def build_command(openscad, entry, variant, params):
     if keep_fill or drop_fill:
         svg_path = filter_svg_by_fill(svg_path, keep_fill=keep_fill, drop_fill=drop_fill)
 
-    wide = entry.get("wide")
-    if wide is None:
-        wide = svg_is_wide(svg_path)
+    # Aspect ratio of the actual drawn content (post keep_fill/drop_fill), used
+    # by pendant.scad to fit the logo's bounding-box *diagonal* into a circle
+    # so it can't overhang the pendant edge regardless of shape. Only the
+    # ratio matters here, not absolute units - see svg_content_bbox().
+    aspect_w = entry.get("aspect_w")
+    aspect_h = entry.get("aspect_h")
+    if aspect_w is None or aspect_h is None:
+        bbox = svg_content_bbox(svg_path)
+        if bbox is None:
+            print(f"  ! warning: no drawable geometry found in {svg_path.name}, assuming square aspect")
+            aspect_w, aspect_h = 1.0, 1.0
+        else:
+            xmin, ymin, xmax, ymax = bbox
+            aspect_w, aspect_h = max(xmax - xmin, 1e-6), max(ymax - ymin, 1e-6)
 
     out_dir = OUTPUT_DIR / brand_id
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -249,12 +517,14 @@ def build_command(openscad, entry, variant, params):
     defs = {
         "variant": variant,
         "logo_svg": str(svg_path),
-        "logo_wide": bool(wide),
+        "logo_aspect_w": aspect_w,
+        "logo_aspect_h": aspect_h,
         "pendant_d": params["pendant_d"],
         "base_h": params["base_h"],
         "ring_id": params["ring_id"],
         "ring_od": params["ring_od"],
         "ring_overlap": params["ring_overlap"],
+        "logo_margin": params["logo_margin"],
         "logo_size": entry.get("logo_size", params["logo_size"]),
         "logo_y_offset": entry.get("y_offset", 0),
         "logo_x_offset": entry.get("x_offset", 0),
@@ -304,7 +574,14 @@ def main():
     ap.add_argument("--ring-id", type=float, default=DEFAULT_PARAMS["ring_id"])
     ap.add_argument("--ring-od", type=float, default=DEFAULT_PARAMS["ring_od"])
     ap.add_argument("--ring-overlap", type=float, default=DEFAULT_PARAMS["ring_overlap"])
-    ap.add_argument("--logo-size", type=float, default=DEFAULT_PARAMS["logo_size"])
+    ap.add_argument(
+        "--logo-margin", type=float, default=DEFAULT_PARAMS["logo_margin"],
+        help="gap (mm) between the logo's fitted bounding circle and the pendant edge",
+    )
+    ap.add_argument(
+        "--logo-size", type=float, default=DEFAULT_PARAMS["logo_size"],
+        help="explicit logo bounding-circle diameter (mm), overriding --logo-margin. 0 = auto (default)",
+    )
     ap.add_argument("--emboss-h", type=float, default=DEFAULT_PARAMS["emboss_h"])
     ap.add_argument("--engrave-d", type=float, default=DEFAULT_PARAMS["engrave_d"])
     args = ap.parse_args()
@@ -327,6 +604,7 @@ def main():
         "ring_id": args.ring_id,
         "ring_od": args.ring_od,
         "ring_overlap": args.ring_overlap,
+        "logo_margin": args.logo_margin,
         "logo_size": args.logo_size,
         "emboss_h": args.emboss_h,
         "engrave_d": args.engrave_d,

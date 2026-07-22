@@ -49,7 +49,8 @@ PARAM_SPECS = [
     ("ring_id", "Ring inner diameter (mm)", gen.DEFAULT_PARAMS["ring_id"]),
     ("ring_od", "Ring outer diameter (mm)", gen.DEFAULT_PARAMS["ring_od"]),
     ("ring_overlap", "Ring/disc weld overlap (mm)", gen.DEFAULT_PARAMS["ring_overlap"]),
-    ("logo_size", "Logo size (mm, long side)", gen.DEFAULT_PARAMS["logo_size"]),
+    ("logo_margin", "Logo margin from edge (mm)", gen.DEFAULT_PARAMS["logo_margin"]),
+    ("logo_size", "Logo size override (mm, 0=auto)", gen.DEFAULT_PARAMS["logo_size"]),
     ("emboss_h", "Emboss height (mm)", gen.DEFAULT_PARAMS["emboss_h"]),
     ("engrave_d", "Engrave depth (mm)", gen.DEFAULT_PARAMS["engrave_d"]),
 ]
